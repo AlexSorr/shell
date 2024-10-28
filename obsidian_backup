@@ -1,0 +1,90 @@
+#!/bin/bash
+
+#выполнить, если скрипт качал из интернета и на маке оперейшн не оперейшн
+#xattr -d com.apple.quarantine ./obsidian_backup
+
+create_folder_variable() {
+    local VAR_NAME=$1
+    path=$(zenity --file-selection --directory --title="Select Obsidian Vault" --filename="$HOME/" 2> /dev/null)
+    # проверяем, что вернулся корректный каталог
+    if [ -d "$path" ]; then
+        # заменяем на $HOME для записи в оболочку
+        VALUE=$(echo "$path" | sed "s|$HOME|\\\$HOME|")
+        echo "export $VAR_NAME=\"$VALUE\"" >> "$HOME/.zshrc"
+        echo -e "$VAR_NAME set to $VALUE\n"
+    fi
+}
+
+folder_config_exists() {
+    local VAR_NAME=$1
+
+    # Проверяем, существует ли переменная окружения и указана ли она как каталог
+    if [ -n "${!VAR_NAME}" ] && [ ! -d "${!VAR_NAME}" ]; then
+        echo "The environment variable $VAR_NAME is set, but the directory ${!VAR_NAME} does not exist."
+
+        # Спрашиваем пользователя, хочет ли он создать каталог
+        read -p "Do you want to create the directory at ${!VAR_NAME}? (y/n): " answer
+        case $answer in
+            [Yy]* )
+                mkdir -p "${!VAR_NAME}"  # Создаем каталог
+                echo -e "Directory ${!VAR_NAME} has been successfully created.\n"
+                ;;
+            [Nn]* )
+                echo "Script execution terminated by the user."
+                exit 1  # Завершаем выполнение скрипта
+                ;;
+            * )
+                echo "Invalid input. Script terminated."
+                exit 1  # Завершаем выполнение скрипта
+                ;;
+        esac
+    fi
+
+    # Если каталог существует, возвращаем 0 (успех)
+    if [ -d "${!VAR_NAME}" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+config_path="$HOME/.zshrc"
+if [ ! -e "$config_path" ]; then
+    echo "Config $config_path not found"
+    exit 1
+fi
+
+exit_after_setup=0
+if ! folder_config_exists OBSIDIAN; then
+    echo "Select Obsidian Vault path:"
+    create_folder_variable OBSIDIAN
+    exit_after_setup=1
+fi
+
+if ! folder_config_exists OBSIDIAN_BACKUP; then
+    echo "Select Obsidian backup path:"
+    create_folder_variable OBSIDIAN_BACKUP
+    exit_after_setup=1
+fi
+
+if [ "$exit_after_setup" = 1 ]; then
+    source "$HOME/.${SHELL##*/}rc"
+    echo "Finishing setup; restart terminal and run command again"
+    exit 0
+fi
+
+if [ -d "$OBSIDIAN" ] && [ -d "$OBSIDIAN_BACKUP" ]; then
+    echo -e "Starting backup: \n - $OBSIDIAN\nTo path: \n - $OBSIDIAN_BACKUP\n"
+
+    # Создаем зашифрованный zip-архив
+    current_date=$(date +"%Y-%m-%d %H-%M-%S")
+    zip_file="$OBSIDIAN_BACKUP/obsidian_$current_date.zip"
+    cd "$(dirname "$OBSIDIAN")" && zip -e -r "$zip_file" "$(basename "$OBSIDIAN")" > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "Backup error!"
+    else
+        echo "Backup sucessfuly saved!"
+    fi
+else
+    echo -e "Error reading $OBSIDIAN or $OBSIDIAN_BACKUP\nCheck config: $("$HOME/.${SHELL##*/}rc")"
+fi
