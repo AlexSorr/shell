@@ -1,0 +1,94 @@
+#!/bin/bash
+
+#выполнить, если скрипт качал из интернета и на маке оперейшн не оперейшн
+#xattr -d com.apple.quarantine ./obsidian_backup
+
+select_directory() {
+    # тип каталога - какую папку выбираем
+    local directory_type=$1
+
+    read -e -p "Enter directory path ($directory_type): " directory_path
+
+    while [ ! -d "$directory_path" ]; do
+
+        if [ "$directory_path" = 'q' ]; then
+            # обнуляем строку в которую писался мусор
+            directory_path=""
+            # пользователь вышел
+            return 1
+        else
+            echo "Incorrect $directory_type directory path" >&2
+            read -e -p "Enter correct path or 'q' to quit: " directory_path
+        fi
+        
+    done
+
+    echo "$directory_path"
+    return 0
+}
+
+# записать переменные окружения в конфиг
+create_folder_variable() {
+    local VAR_NAME=$1
+    path=$(select_directory $VAR_NAME)
+    
+    if [ ! -d "$path" ]; then
+        exit 1
+    else
+        # заменяем на $HOME для записи в оболочку
+        VALUE=$(echo "$path" | sed "s|$HOME|\\\$HOME|")
+        echo "export $VAR_NAME=\"$VALUE\"" >> "$HOME/.zshrc"
+        echo -e "$VAR_NAME set to $VALUE\n"
+    fi
+}
+
+folder_exists() {
+    local DIR_NAME=$1
+    if [ -d "${!DIR_NAME}" ]; then
+        return 0
+    fi
+    return 1
+}
+
+config_path="$HOME/.zshrc"
+if [ ! -e "$config_path" ]; then
+    echo "Config $config_path not found"
+    exit 1
+fi
+
+exit_after_setup=0
+if ! folder_exists OBSIDIAN; then
+    echo "Select Obsidian Vault path:"
+    create_folder_variable OBSIDIAN
+    echo
+    exit_after_setup=1
+fi
+
+if ! folder_exists OBSIDIAN_BACKUP; then
+    echo "Select Obsidian backup path:"
+    create_folder_variable OBSIDIAN_BACKUP
+    echo
+    exit_after_setup=1
+fi
+
+if [ "$exit_after_setup" = 1 ]; then
+    source "$HOME/.${SHELL##*/}rc"
+    echo "Finishing setup; restart terminal and run command again"
+    exit 0
+fi
+
+if [ -d "$OBSIDIAN" ] && [ -d "$OBSIDIAN_BACKUP" ]; then
+    echo -e "Starting backup: \n - $OBSIDIAN\nTo path: \n - $OBSIDIAN_BACKUP\n"
+
+    # Создаем зашифрованный zip-архив
+    current_date=$(date +"%Y-%m-%d %H-%M-%S")
+    zip_file="$OBSIDIAN_BACKUP/obsidian_$current_date.zip"
+    cd "$(dirname "$OBSIDIAN")" && zip -e -r "$zip_file" "$(basename "$OBSIDIAN")" > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "Backup error!"
+    else
+        echo "Backup sucessfuly saved!"
+    fi
+else
+    echo -e "Error reading $OBSIDIAN or $OBSIDIAN_BACKUP\nCheck config: $("$HOME/.${SHELL##*/}rc")"
+fi
