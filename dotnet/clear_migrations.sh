@@ -2,7 +2,7 @@
 migrations_path="$PWD"/Migrations
 
 # Проверка наличия папки Migrations
-if [ ! -d "$migration_path" ]; then
+if [ ! -d "$migrations_path" ]; then
     echo "No migrations folder found"
     exit 0
 fi
@@ -10,7 +10,7 @@ fi
 # Подсчёт количества видимых элементов в папке
 count=$(find ./Migrations -maxdepth 1 -type f | grep -v "/\." | wc -l)
 
-echo -e "Path: $migration_path\nElements count:$count"
+echo -e "Path: $migrations_path\nElements count:$count"
 
 if [ $count -le 0 ]; then
     echo "No migrations found"
