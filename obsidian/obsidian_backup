@@ -3,6 +3,9 @@
 #выполнить, если скрипт качал из интернета и на маке оперейшн не оперейшн
 #xattr -d com.apple.quarantine ./obsidian_backup
 
+# под Mac или Linux
+config_path="$HOME/.${SHELL##*/}rc"
+
 select_directory() {
     # тип каталога - какую папку выбираем
     local directory_type=$1
@@ -37,7 +40,7 @@ create_folder_variable() {
     else
         # заменяем на $HOME для записи в оболочку
         VALUE=$(echo "$path" | sed "s|$HOME|\\\$HOME|")
-        echo "export $VAR_NAME=\"$VALUE\"" >> "$HOME/.zshrc"
+        echo "export $VAR_NAME=\"$VALUE\"" >> "$HOME/$config_path"
         echo -e "$VAR_NAME set to $VALUE\n"
     fi
 }
@@ -50,7 +53,6 @@ folder_exists() {
     return 1
 }
 
-config_path="$HOME/.zshrc"
 if [ ! -e "$config_path" ]; then
     echo "Config $config_path not found"
     exit 1
@@ -72,7 +74,7 @@ if ! folder_exists OBSIDIAN_BACKUP; then
 fi
 
 if [ "$exit_after_setup" = 1 ]; then
-    source "$HOME/.${SHELL##*/}rc"
+    source "$config_path"
     echo "Finishing setup; restart terminal and run command again"
     exit 0
 fi
